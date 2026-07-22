@@ -1,8 +1,0 @@
-[phases.setup]
-nixPkgs = ["chromium"]
-
-[phases.build]
-cmd = "pip install -r requirements.txt && python -m playwright install chromium && python manage.py collectstatic --noinput"
-
-[phases.run]
-cmd = "python manage.py migrate && gunicorn price_scraper.wsgi"
