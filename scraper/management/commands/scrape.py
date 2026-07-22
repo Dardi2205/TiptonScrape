@@ -5,6 +5,7 @@ from scraper.scrapers.aztech import AztechScraper
 from scraper.scrapers.base import reset_browser, close_browser
 import json
 import os
+import time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,36 +24,46 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--store', type=str, help='Scrape specific store')
+        parser.add_argument('--loop', action='store_true', help='Run continuously every hour')
 
     def handle(self, *args, **options):
         store_filter = options.get('store')
+        loop = options.get('loop')
         os.makedirs(CACHE_DIR, exist_ok=True)
 
-        stores = [store_filter] if store_filter else list(SCRAPERS.keys())
+        def run_scrape():
+            stores = [store_filter] if store_filter else list(SCRAPERS.keys())
+            for slug in stores:
+                self.stdout.write(f'[{time.strftime("%H:%M:%S")}] Scraping {slug}...', ending=' ')
+                try:
+                    reset_browser()
+                    ScraperClass = SCRAPERS[slug]
+                    scraper = ScraperClass()
+                    products = scraper.scrape_all_discounts()
 
-        for slug in stores:
-            self.stdout.write(f'Scraping {slug}...', ending=' ')
-            try:
-                reset_browser()
-                ScraperClass = SCRAPERS[slug]
-                scraper = ScraperClass()
-                products = scraper.scrape_all_discounts()
+                    for p in products:
+                        p['store_name'] = scraper.STORE_NAME
+                        p['store_slug'] = scraper.STORE_SLUG
+                        if hasattr(p.get('current_price'), '__float__'):
+                            p['current_price'] = float(p['current_price'])
+                        if p.get('old_price') and hasattr(p['old_price'], '__float__'):
+                            p['old_price'] = float(p['old_price'])
 
-                for p in products:
-                    p['store_name'] = scraper.STORE_NAME
-                    p['store_slug'] = scraper.STORE_SLUG
-                    if hasattr(p.get('current_price'), '__float__'):
-                        p['current_price'] = float(p['current_price'])
-                    if p.get('old_price') and hasattr(p['old_price'], '__float__'):
-                        p['old_price'] = float(p['old_price'])
+                    cache_path = os.path.join(CACHE_DIR, f'discounts_{slug}.json')
+                    with open(cache_path, 'w', encoding='utf-8') as f:
+                        json.dump({'cached_at': time.strftime('%Y-%m-%dT%H:%M:%S'), 'products': products}, f, ensure_ascii=False)
 
-                cache_path = os.path.join(CACHE_DIR, f'discounts_{slug}.json')
-                with open(cache_path, 'w', encoding='utf-8') as f:
-                    json.dump({'cached_at': __import__('datetime').datetime.now().isoformat(), 'products': products}, f, ensure_ascii=False)
+                    self.stdout.write(self.style.SUCCESS(f'{len(products)} products'))
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f'Error: {e}'))
+            close_browser()
 
-                self.stdout.write(self.style.SUCCESS(f'{len(products)} products'))
-            except Exception as e:
-                self.stdout.write(self.style.ERROR(f'Error: {e}'))
-
-        close_browser()
-        self.stdout.write(self.style.SUCCESS('Done!'))
+        if loop:
+            self.stdout.write(self.style.SUCCESS('Starting continuous scraping (every hour)...'))
+            while True:
+                run_scrape()
+                self.stdout.write(f'\nSleeping 1 hour until next scrape...\n')
+                time.sleep(3600)
+        else:
+            run_scrape()
+            self.stdout.write(self.style.SUCCESS('Done!'))
