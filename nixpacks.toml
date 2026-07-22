@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["python313", "chromium"]
+
+[phases.build]
+cmds = ["pip install -r requirements.txt", "python -m playwright install chromium"]
+
+[start]
+cmd = "python manage.py migrate && gunicorn price_scraper.wsgi --bind 0.0.0.0:$PORT"

@@ -29,6 +29,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN python -m playwright install chromium
 
 COPY . .
-RUN chmod +x entrypoint.sh
+RUN python manage.py collectstatic --noinput
 
-CMD ["./entrypoint.sh"]
+CMD sh -c "python manage.py migrate && gunicorn price_scraper.wsgi --bind 0.0.0.0:${PORT:-8000}"
