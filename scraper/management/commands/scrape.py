@@ -1,10 +1,10 @@
 from django.core.management.base import BaseCommand
-from django.utils.text import slugify
-from scraper.models import Store, Category, Product, PriceHistory
 from scraper.scrapers.gjirafa import GjirafaScraper
 from scraper.scrapers.neptun import NeptunScraper
 from scraper.scrapers.aztech import AztechScraper
-from scraper.scrapers.midea import MideaScraper
+from scraper.scrapers.base import reset_browser, close_browser
+import json
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,107 +13,46 @@ SCRAPERS = {
     'gjirafa': GjirafaScraper,
     'neptun': NeptunScraper,
     'aztech': AztechScraper,
-    'midea': MideaScraper,
 }
 
-CATEGORIES = [
-    ('klima', 'Klima'),
-    ('tv', 'Televizor'),
-    ('pc', 'Kompjuter'),
-    ('lavatrice', 'Lavatrice'),
-    ('frigorifer', 'Frigorifer'),
-    ('kuzhine', 'Kuzhine'),
-]
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'cache')
 
 
 class Command(BaseCommand):
-    help = 'Scrape products from Albanian tech stores'
+    help = 'Scrape discount products and save to cache'
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            '--store',
-            type=str,
-            help='Scrape specific store (gjirafa, neptun, aztech, midea)',
-        )
-        parser.add_argument(
-            '--category',
-            type=str,
-            help='Scrape specific category (klima, tv, pc, lavatrice, frigorifer, kuzhine)',
-        )
+        parser.add_argument('--store', type=str, help='Scrape specific store')
 
     def handle(self, *args, **options):
         store_filter = options.get('store')
-        category_filter = options.get('category')
+        os.makedirs(CACHE_DIR, exist_ok=True)
 
-        stores_to_scrape = []
-        if store_filter:
-            if store_filter in SCRAPERS:
-                stores_to_scrape = [store_filter]
-            else:
-                self.stderr.write(self.style.ERROR(f'Unknown store: {store_filter}'))
-                return
-        else:
-            stores_to_scrape = list(SCRAPERS.keys())
+        stores = [store_filter] if store_filter else list(SCRAPERS.keys())
 
-        categories_to_scrape = []
-        if category_filter:
-            categories_to_scrape = [category_filter]
-        else:
-            categories_to_scrape = [c[0] for c in CATEGORIES]
+        for slug in stores:
+            self.stdout.write(f'Scraping {slug}...', ending=' ')
+            try:
+                reset_browser()
+                ScraperClass = SCRAPERS[slug]
+                scraper = ScraperClass()
+                products = scraper.scrape_all_discounts()
 
-        for store_slug in stores_to_scrape:
-            scraper_class = SCRAPERS[store_slug]
-            scraper = scraper_class()
+                for p in products:
+                    p['store_name'] = scraper.STORE_NAME
+                    p['store_slug'] = scraper.STORE_SLUG
+                    if hasattr(p.get('current_price'), '__float__'):
+                        p['current_price'] = float(p['current_price'])
+                    if p.get('old_price') and hasattr(p['old_price'], '__float__'):
+                        p['old_price'] = float(p['old_price'])
 
-            store, _ = Store.objects.get_or_create(
-                slug=store_slug,
-                defaults={
-                    'name': scraper.STORE_NAME,
-                    'base_url': scraper.BASE_URL,
-                }
-            )
+                cache_path = os.path.join(CACHE_DIR, f'discounts_{slug}.json')
+                with open(cache_path, 'w', encoding='utf-8') as f:
+                    json.dump({'cached_at': __import__('datetime').datetime.now().isoformat(), 'products': products}, f, ensure_ascii=False)
 
-            self.stdout.write(f'\nScraping {scraper.STORE_NAME}...')
+                self.stdout.write(self.style.SUCCESS(f'{len(products)} products'))
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'Error: {e}'))
 
-            for cat_slug in categories_to_scrape:
-                category, _ = Category.objects.get_or_create(
-                    slug=cat_slug,
-                    defaults={'name': dict(CATEGORIES).get(cat_slug, cat_slug)}
-                )
-
-                self.stdout.write(f'  Category: {category.name}...', ending=' ')
-
-                try:
-                    products = scraper.scrape_category(cat_slug)
-                except Exception as e:
-                    self.stderr.write(self.style.ERROR(f'Error: {e}'))
-                    continue
-
-                count = 0
-                for pdata in products:
-                    product, created = Product.objects.update_or_create(
-                        store=store,
-                        slug=pdata['slug'],
-                        defaults={
-                            'name': pdata['name'],
-                            'category': category,
-                            'url': pdata['url'],
-                            'image_url': pdata.get('image_url', ''),
-                            'brand': pdata.get('brand', ''),
-                            'model_name': pdata.get('model_name', ''),
-                            'current_price': pdata['current_price'],
-                            'old_price': pdata.get('old_price'),
-                            'in_stock': pdata.get('in_stock', True),
-                        }
-                    )
-
-                    PriceHistory.objects.create(
-                        product=product,
-                        price=pdata['current_price'],
-                    )
-
-                    count += 1
-
-                self.stdout.write(self.style.SUCCESS(f'{count} products'))
-
-        self.stdout.write(self.style.SUCCESS('\nScraping complete!'))
+        close_browser()
+        self.stdout.write(self.style.SUCCESS('Done!'))

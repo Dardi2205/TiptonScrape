@@ -2,12 +2,8 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.db.models import Q, Min, Max, Avg, F
 from .models import Product, Store, Category, PriceHistory
-from .scrapers.gjirafa import GjirafaScraper
-from .scrapers.neptun import NeptunScraper
-from .scrapers.aztech import AztechScraper
 import json
 import os
-import threading
 from datetime import timedelta, datetime
 from django.utils import timezone
 import logging
@@ -15,13 +11,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
-CACHE_TTL = 3600  # 1 hour in seconds
-
-SCRAPERS = {
-    'gjirafa': GjirafaScraper,
-    'neptun': NeptunScraper,
-    'aztech': AztechScraper,
-}
 
 STORES_INFO = [
     {'slug': 'gjirafa', 'name': 'GjirafaMall', 'url': 'https://gjirafamall.com'},
@@ -38,53 +27,13 @@ def _get_cache_path(store_slug):
 def _read_cache(store_slug):
     path = _get_cache_path(store_slug)
     if not os.path.exists(path):
-        return None
+        return []
     try:
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        cached_at = datetime.fromisoformat(data['cached_at'])
-        age = (datetime.now() - cached_at).total_seconds()
-        if age < CACHE_TTL:
-            return data['products']
+        return data.get('products', [])
     except Exception:
-        pass
-    return None
-
-
-def _write_cache(store_slug, products):
-    path = _get_cache_path(store_slug)
-    data = {
-        'cached_at': datetime.now().isoformat(),
-        'products': products,
-    }
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False)
-
-
-def _scrape_store(store_slug):
-    try:
-        from .scrapers.base import reset_browser
-        reset_browser()
-        ScraperClass = SCRAPERS[store_slug]
-        scraper = ScraperClass()
-        products = scraper.scrape_all_discounts()
-        for p in products:
-            p['store_name'] = scraper.STORE_NAME
-            p['store_slug'] = scraper.STORE_SLUG
-            # Convert Decimal to float for JSON
-            if hasattr(p.get('current_price'), '__float__'):
-                p['current_price'] = float(p['current_price'])
-            if p.get('old_price') and hasattr(p['old_price'], '__float__'):
-                p['old_price'] = float(p['old_price'])
-        _write_cache(store_slug, products)
-        logger.info(f"Cache updated for {store_slug}: {len(products)} products")
-    except Exception as e:
-        logger.error(f"Error scraping {store_slug}: {e}")
-
-
-def _scrape_all_background():
-    for slug in SCRAPERS:
-        _scrape_store(slug)
+        return []
 
 
 def home(request):
@@ -160,7 +109,6 @@ def product_detail(request, product_id):
 
 
 def api_products(request):
-    """API endpoint for products"""
     products = Product.objects.select_related('store', 'category').all()
 
     category = request.GET.get('category')
@@ -192,7 +140,6 @@ def api_products(request):
 
 
 def api_price_history(request, product_id):
-    """API endpoint for price history"""
     try:
         product = Product.objects.get(id=product_id)
     except Product.DoesNotExist:
@@ -215,7 +162,6 @@ def api_price_history(request, product_id):
 
 
 def api_stats(request):
-    """API endpoint for dashboard stats"""
     total_products = Product.objects.count()
     total_stores = Store.objects.filter(is_active=True).count()
     total_categories = Category.objects.count()
@@ -243,51 +189,28 @@ def api_stats(request):
 
 
 def discounts(request):
-    """Scrape and display products on sale from all stores with buttons - uses cache for speed"""
+    """Read products from cache only - no scraping in Django"""
     store_slug = request.GET.get('store', 'all')
-    category = request.GET.get('category', '')
 
     products = []
     current_store_name = ''
-    is_cached = False
 
-    try:
-        if store_slug and store_slug in SCRAPERS:
-            # Try cache first
-            cached = _read_cache(store_slug)
-            if cached:
-                products = cached
-                is_cached = True
-            else:
-                # Scrape and cache
-                _scrape_store(store_slug)
-                products = _read_cache(store_slug) or []
-            current_store_name = SCRAPERS[store_slug].STORE_NAME if store_slug in SCRAPERS else store_slug
+    if store_slug in ['gjirafa', 'neptun', 'aztech']:
+        products = _read_cache(store_slug)
+        store_info = next((s for s in STORES_INFO if s['slug'] == store_slug), None)
+        current_store_name = store_info['name'] if store_info else store_slug
 
-        elif store_slug == 'all':
-            # Try cache for all stores
-            all_cached = []
-            for slug in SCRAPERS:
-                cached = _read_cache(slug)
-                if cached:
-                    all_cached.extend(cached)
-                    is_cached = True
-                else:
-                    # Scrape missing store
-                    _scrape_store(slug)
-                    new_cached = _read_cache(slug) or []
-                    all_cached.extend(new_cached)
-            products = all_cached
-            current_store_name = 'Te gjitha dyqanet'
+    elif store_slug == 'all':
+        for info in STORES_INFO:
+            cached = _read_cache(info['slug'])
+            for p in cached:
+                p['store_name'] = info['name']
+                p['store_slug'] = info['slug']
+            products.extend(cached)
+        current_store_name = 'Te gjitha dyqanet'
 
-        else:
-            current_store_name = 'Zgjedhni dyqanin'
-    except Exception as e:
-        logger.error(f"Error in discounts view: {e}")
-
-    # If we used cache, refresh in background if stale
-    if is_cached:
-        threading.Thread(target=_scrape_all_background, daemon=True).start()
+    else:
+        current_store_name = 'Zgjedhni dyqanin'
 
     products.sort(key=lambda x: x.get('discount_percent', 0), reverse=True)
 
@@ -296,7 +219,6 @@ def discounts(request):
         'total_count': len(products),
         'current_store': store_slug,
         'current_store_name': current_store_name,
-        'current_category': category,
         'stores': STORES_INFO,
         'page_title': 'Produkte ne Zbritje',
     }
