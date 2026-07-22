@@ -1,0 +1,198 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PriceScrap - Krahaso Çmimet e Teknikës</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="/" class="logo">
+                <img src="{% static 'images/logo.svg' %}" alt="PriceScrap Logo" class="logo-img">
+            </a>
+            <div class="nav-links">
+                <a href="/" class="active">Produktet</a>
+                <a href="{% url 'scraper:discounts' %}">Zbritje</a>
+                <a href="/admin/" target="_blank">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="hero">
+            <h1>Krahaso Çmimet e Teknikës</h1>
+            <p>Gjirafa, Neptun, Aztech, Midea - të gjitha në një vend</p>
+        </div>
+
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-item">
+                <span class="stat-value" id="totalProducts">-</span>
+                <span class="stat-label">Produkte</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="totalStores">-</span>
+                <span class="stat-label">Markete</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="totalDiscounts">-</span>
+                <span class="stat-label">Ulje Çmimi</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="avgPrice">-</span>
+                <span class="stat-label">Çmimi Mesatar</span>
+            </div>
+        </div>
+
+        <div class="filters">
+            <form method="get" class="filter-form">
+                <div class="filter-group">
+                    <label>Kërko</label>
+                    <input type="text" name="q" value="{{ search_query }}" placeholder="Kërko produkt...">
+                </div>
+                <div class="filter-group">
+                    <label>Kategoria</label>
+                    <select name="category">
+                        <option value="">Të gjitha</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.slug }}" {% if cat.slug == current_category %}selected{% endif %}>
+                            {{ cat.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Marketi</label>
+                    <select name="store">
+                        <option value="">Të gjitha</option>
+                        {% for store in stores %}
+                        <option value="{{ store.slug }}" {% if store.slug == current_store %}selected{% endif %}>
+                            {{ store.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Radhitja</label>
+                    <select name="sort">
+                        <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Emri</option>
+                        <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>Çmimi (i ulët)</option>
+                        <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Çmimi (i lartë)</option>
+                    </select>
+                </div>
+                <div class="filter-group view-toggle">
+                    <button type="button" class="view-btn {% if view_mode == 'grid' %}active{% endif %}" data-view="grid" title="Karta">▦</button>
+                    <button type="button" class="view-btn {% if view_mode == 'table' %}active{% endif %}" data-view="table" title="Tabelë">☰</button>
+                    <input type="hidden" name="view" id="viewInput" value="{{ view_mode }}">
+                </div>
+                <button type="submit" class="btn btn-primary">Kërko</button>
+            </form>
+        </div>
+
+        <div class="results-info">
+            <span>{{ total_products }} produkte u gjetën</span>
+        </div>
+
+        {% if view_mode == 'table' %}
+        <div class="table-view" id="tableView">
+            <table class="products-table">
+                <thead>
+                    <tr>
+                        <th>Produkti</th>
+                        <th>Marketi</th>
+                        <th>Kategoria</th>
+                        <th>Çmimi</th>
+                        <th>Çmimi i Vjetër</th>
+                        <th>Zbritja</th>
+                        <th>Veprim</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr>
+                        <td class="product-name-cell">
+                            {% if product.image_url %}
+                            <img src="{{ product.image_url }}" alt="{{ product.name }}" class="table-thumb" onerror="this.style.display='none'">
+                            {% endif %}
+                            <div>
+                                <a href="{% url 'scraper:product_detail' product.id %}">{{ product.name }}</a>
+                                {% if product.brand %}<span class="brand-tag">{{ product.brand }}</span>{% endif %}
+                            </div>
+                        </td>
+                        <td><span class="store-badge store-{{ product.store.slug }}">{{ product.store.name }}</span></td>
+                        <td>{{ product.category.name|default:"-" }}</td>
+                        <td class="price-cell">{{ product.current_price|floatformat:0 }} &#8364;</td>
+                        <td class="old-price-cell">
+                            {% if product.old_price %}{{ product.old_price|floatformat:0 }} &#8364;{% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {% if product.discount_percent > 0 %}
+                            <span class="discount-badge">-{{ product.discount_percent }}%</span>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'scraper:product_detail' product.id %}" class="btn btn-sm">Shiko</a>
+                            {% if product.url %}<a href="{{ product.url }}" target="_blank" class="btn btn-sm btn-outline">Shko tek producti</a>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="empty-state">Nuk u gjetën produkte</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="grid-view" id="gridView">
+            {% for product in products %}
+            <div class="product-card">
+                {% if product.image_url %}
+                <div class="card-image">
+                    <img src="{{ product.image_url }}" alt="{{ product.name }}" loading="lazy" onerror="this.parentElement.style.display='none'">
+                    {% if product.discount_percent > 0 %}
+                    <span class="discount-ribbon">-{{ product.discount_percent }}%</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                <div class="card-body">
+                    <div class="card-meta">
+                        <span class="store-badge store-{{ product.store.slug }}">{{ product.store.name }}</span>
+                        {% if product.category %}<span class="cat-tag">{{ product.category.name }}</span>{% endif %}
+                    </div>
+                    <h3 class="card-title">
+                        <a href="{% url 'scraper:product_detail' product.id %}">{{ product.name }}</a>
+                    </h3>
+                    <div class="card-price">
+                        <span class="current-price">{{ product.current_price|floatformat:0 }} &#8364;</span>
+                        {% if product.old_price %}
+                        <span class="old-price">{{ product.old_price|floatformat:0 }} &#8364;</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-actions">
+                        <a href="{% url 'scraper:product_detail' product.id %}" class="btn btn-primary btn-sm">Historia e Çmimit</a>
+                        {% if product.url %}
+                        <a href="{{ product.url }}" target="_blank" class="btn btn-outline btn-sm">Shko tek producti</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-grid">
+                <p>Nuk u gjetën produkte. Provoni me filtra të tjerë.</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>PriceScrap &copy; 2026 - Çmimet përditësohen automatikisht</p>
+        </div>
+    </footer>
+
+    <script src="{% static 'js/app.js' %}"></script>
+</body>
+</html>

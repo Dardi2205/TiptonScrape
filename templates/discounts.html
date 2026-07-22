@@ -1,0 +1,105 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} - PriceScrap</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="/" class="logo">
+                <img src="{% static 'images/logo.svg' %}" alt="PriceScrap Logo" class="logo-img">
+            </a>
+            <div class="nav-links">
+                <a href="/">Produktet</a>
+                <a href="{% url 'scraper:discounts' %}" class="active">Zbritje</a>
+                <a href="/admin/" target="_blank">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="hero">
+            <h1>{{ page_title }}</h1>
+            <p>Gjendet automatikisht produktet me cmim te ulet nga te gjitha dyqanet</p>
+        </div>
+
+        <div class="store-buttons">
+            <a href="?store=gjirafa" class="store-btn {% if current_store == 'gjirafa' %}active{% endif %}">
+                GjirafaMall
+            </a>
+            <a href="?store=neptun" class="store-btn {% if current_store == 'neptun' %}active{% endif %}">
+                Neptun
+            </a>
+            <a href="?store=aztech" class="store-btn {% if current_store == 'aztech' %}active{% endif %}">
+                Aztech
+            </a>
+            <a href="?store=all" class="store-btn {% if current_store == 'all' %}active{% endif %}">
+                Te gjitha
+            </a>
+        </div>
+
+        <div class="results-info">
+            <span>{{ total_count }} produkte ne zbritje</span>
+            {% if current_store_name %}
+            <span class="store-filter-label">nga {{ current_store_name }}</span>
+            {% endif %}
+        </div>
+
+        <div class="grid-view" id="gridView">
+            {% for product in products %}
+            <div class="product-card discount-card">
+                {% if product.image_url %}
+                <div class="card-image">
+                    <img src="{{ product.image_url }}" alt="{{ product.name }}" loading="lazy" onerror="this.parentElement.style.display='none'">
+                    {% if product.discount_percent > 0 %}
+                    <span class="discount-ribbon">-{{ product.discount_percent }}%</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                <div class="card-body">
+                    <div class="card-meta">
+                        {% if product.store_name %}
+                        <span class="store-badge">{{ product.store_name }}</span>
+                        {% elif product.store_slug %}
+                        <span class="store-badge store-{{ product.store_slug }}">{{ product.store_slug }}</span>
+                        {% endif %}
+                    </div>
+                    <h3 class="card-title">
+                        {% if product.url %}
+                        <a href="{{ product.url }}" target="_blank">{{ product.name }}</a>
+                        {% else %}
+                        {{ product.name }}
+                        {% endif %}
+                    </h3>
+                    <div class="card-price">
+                        <span class="current-price">{{ product.current_price|floatformat:2 }} &#8364;</span>
+                        {% if product.old_price %}
+                        <span class="old-price">{{ product.old_price|floatformat:2 }} &#8364;</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-actions">
+                        {% if product.url %}
+                        <a href="{{ product.url }}" target="_blank" class="btn btn-primary btn-sm">Shko tek produkti</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-grid">
+                <p>Zgjedhni nje dyqan me poshte per te pare produktet ne zbritje.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>PriceScrap &copy; 2026 - Çmimet përditësohen automatikisht</p>
+        </div>
+    </footer>
+</body>
+</html>

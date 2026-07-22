@@ -1,0 +1,137 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ product.name }} - PriceScrap</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="/" class="logo">
+                <span class="logo-icon">📊</span>
+                PriceScrap
+            </a>
+            <div class="nav-links">
+                <a href="/" class="active">Produktet</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <a href="/" class="back-link">&larr; Kthehu</a>
+
+        <div class="detail-layout">
+            <div class="detail-main">
+                <div class="detail-card">
+                    {% if product.image_url %}
+                    <div class="detail-image">
+                        <img src="{{ product.image_url }}" alt="{{ product.name }}" onerror="this.style.display='none'">
+                    </div>
+                    {% endif %}
+
+                    <div class="detail-info">
+                        <div class="detail-meta">
+                            <span class="store-badge store-{{ product.store.slug }}">{{ product.store.name }}</span>
+                            {% if product.category %}
+                            <span class="cat-tag">{{ product.category.name }}</span>
+                            {% endif %}
+                        </div>
+                        <h1>{{ product.name }}</h1>
+
+                        <div class="detail-price">
+                            <span class="current-price-lg">{{ product.current_price|floatformat:0 }} L</span>
+                            {% if product.old_price %}
+                            <span class="old-price-lg">{{ product.old_price|floatformat:0 }} L</span>
+                            {% if product.discount_percent > 0 %}
+                            <span class="discount-badge-lg">-{{ product.discount_percent }}%</span>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+
+                        <div class="detail-meta-list">
+                            {% if product.brand %}<p><strong>Brand:</strong> {{ product.brand }}</p>{% endif %}
+                            {% if product.model_name %}<p><strong>Modeli:</strong> {{ product.model_name }}</p>{% endif %}
+                            <p><strong>Marketi:</strong> {{ product.store.name }}</p>
+                            <p><strong>Statusi:</strong> {% if product.in_stock %}<span class="in-stock">Në stok</span>{% else %}<span class="out-of-stock">Jashtë stoku</span>{% endif %}</p>
+                            <p><strong>Fundit u përditësua:</strong> {{ product.scraped_at|date:"d M Y H:i" }}</p>
+                        </div>
+
+                        {% if product.url %}
+                        <a href="{{ product.url }}" target="_blank" class="btn btn-primary btn-lg">Shko tek produkti →</a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h2>Historia e Çmimit (30 ditët e fundit)</h2>
+                    <div class="chart-container">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-sidebar">
+                <div class="sidebar-card">
+                    <h3>Produkte të Ngjashme</h3>
+                    {% for similar in similar_products %}
+                    <a href="{% url 'scraper:product_detail' similar.id %}" class="similar-item">
+                        <div class="similar-info">
+                            <span class="similar-name">{{ similar.name|truncatewords:10 }}</span>
+                            <span class="similar-store">{{ similar.store.name }}</span>
+                        </div>
+                        <span class="similar-price">{{ similar.current_price|floatformat:0 }} L</span>
+                    </a>
+                    {% empty %}
+                    <p class="empty-text">Nuk ka produkte të ngjashme</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const priceData = {{ price_history|safe }};
+        if (priceData.dates && priceData.dates.length > 0) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: priceData.dates,
+                    datasets: [{
+                        label: 'Çmimi (L)',
+                        data: priceData.prices,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#e74c3c',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) { return value.toLocaleString() + ' L'; }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('priceChart').parentElement.innerHTML =
+                '<p class="empty-text">Nuk ka të dhëna historike për çmimin</p>';
+        }
+    </script>
+</body>
+</html>
