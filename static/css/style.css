@@ -135,6 +135,7 @@ body {
 .store-neptun { background: #e3f2fd; color: #1565c0; }
 .store-aztech { background: #f3e5f5; color: #7b1fa2; }
 .store-midea { background: #e8f5e9; color: #2e7d32; }
+.happy-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; background: #ffeb3b; color: #f57f17; }
 .cat-tag { background: var(--bg); padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; color: var(--text-light); }
 .brand-tag { font-size: 0.75rem; color: var(--text-light); margin-left: 4px; }
 .discount-badge { background: var(--primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }

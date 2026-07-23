@@ -120,6 +120,11 @@ class GjirafaScraper:
                     )
                     if image_url and not image_url.startswith('http'):
                         image_url = f"{self.BASE_URL}{image_url}"
+                    # Fix double ? in URL: ?width=196?quality=80 -> ?width=196&quality=80
+                    if '?' in image_url:
+                        parts = image_url.split('?')
+                        if len(parts) > 2:
+                            image_url = parts[0] + '?' + '&'.join(parts[1:])
 
                 slug = re.sub(r'[^a-z0-9]+', '-', name.lower().strip())[:500]
                 if not slug:

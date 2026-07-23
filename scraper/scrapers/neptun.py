@@ -108,6 +108,9 @@ class NeptunScraper:
                 if not current_price or current_price <= 0:
                     continue
 
+                # Check if requires Happy card - discount is only with Happy
+                happy_card = bool(re.search(r'haPPyçmimi|haPPy\s*çmimi', text))
+
                 # Validate old_price is actually higher
                 if old_price and old_price <= current_price:
                     old_price = None
@@ -127,6 +130,9 @@ class NeptunScraper:
                     image_url = img_el.get('data-src') or img_el.get('src', '')
                     if image_url and not image_url.startswith('http'):
                         image_url = f"{self.BASE_URL}{image_url}"
+                    # Fix missing / between domain and path
+                    if image_url.startswith(self.BASE_URL) and not image_url.startswith(self.BASE_URL + '/'):
+                        image_url = image_url.replace(self.BASE_URL, self.BASE_URL + '/', 1)
 
                 slug = re.sub(r'[^a-z0-9]+', '-', name.lower().strip())[:500]
                 if not slug:
@@ -143,6 +149,7 @@ class NeptunScraper:
                     'model_name': '',
                     'in_stock': True,
                     'discount_percent': discount,
+                    'happy_card': happy_card,
                 })
             except Exception as e:
                 logger.debug(f"Error parsing item: {e}")

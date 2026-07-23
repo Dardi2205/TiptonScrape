@@ -78,6 +78,9 @@
                         {% elif product.store_slug %}
                         <span class="store-badge store-{{ product.store_slug }}">{{ product.store_slug }}</span>
                         {% endif %}
+                        {% if product.happy_card %}
+                        <span class="happy-badge">Kartele Happy</span>
+                        {% endif %}
                     </div>
                     <h3 class="card-title">
                         {% if product.url %}
