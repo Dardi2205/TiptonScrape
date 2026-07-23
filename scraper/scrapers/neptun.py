@@ -32,12 +32,11 @@ class NeptunScraper:
     def scrape_all_discounts(self):
         all_products = []
 
-        # Scrape all category pages for products with discounts
         for cat_slug, cat_url in self.CATEGORY_URLS.items():
             url = f"{self.BASE_URL}{cat_url}"
-            logger.info(f"Scraping Neptun category: {cat_slug} -> {url}")
+            logger.info(f"Scraping Neptun: {cat_slug} -> {url}")
             products = self._scrape_url(url)
-            logger.info(f"Neptun {cat_slug}: {len(products)} products")
+            logger.info(f"Neptun {cat_slug}: got {len(products)} products")
             all_products.extend(products)
 
         seen = set()
@@ -47,7 +46,7 @@ class NeptunScraper:
                 seen.add(p['slug'])
                 if p.get('old_price') and p['old_price'] > p['current_price']:
                     unique.append(p)
-        logger.info(f"Neptun total unique discounted: {len(unique)}")
+        logger.info(f"Neptun total: {len(unique)} discounted products")
         return unique
 
     def _scrape_url(self, url):
