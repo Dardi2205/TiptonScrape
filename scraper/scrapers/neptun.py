@@ -32,9 +32,11 @@ class NeptunScraper:
     def scrape_all_discounts(self):
         all_products = []
 
-        # Scrape TV page which has products with discounts
-        tv_products = self._scrape_url(f"{self.BASE_URL}{self.CATEGORY_URLS['tv']}")
-        all_products.extend(tv_products)
+        # Scrape all category pages for products with discounts
+        for cat_slug, cat_url in self.CATEGORY_URLS.items():
+            url = f"{self.BASE_URL}{cat_url}"
+            products = self._scrape_url(url)
+            all_products.extend(products)
 
         seen = set()
         unique = []
