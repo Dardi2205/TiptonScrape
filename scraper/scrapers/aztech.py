@@ -32,9 +32,14 @@ class AztechScraper:
     def scrape_all_discounts(self):
         all_products = []
 
-        # Only scrape offers page for speed
+        # Scrape offers page
         offers_products = self._scrape_url(f"{self.BASE_URL}{self.OFFERS_URL}")
         all_products.extend(offers_products)
+
+        # Also scrape category pages for more products
+        for cat_slug, cat_url in self.CATEGORY_URLS.items():
+            products = self._scrape_url(f"{self.BASE_URL}{cat_url}")
+            all_products.extend(products)
 
         seen = set()
         unique = []
