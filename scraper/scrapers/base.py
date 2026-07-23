@@ -77,15 +77,14 @@ def parse_price(price_text):
         return None
 
 
-def get_page(url, retries=2, wait_seconds=2):
+def get_page(url, retries=3, wait_seconds=3, page_timeout=30000):
     """Fetch a page using Playwright (renders JavaScript)"""
     for attempt in range(retries):
         try:
             browser = get_browser()
             page = browser.new_page()
             try:
-                page.goto(url, wait_until='domcontentloaded', timeout=20000)
-                # Wait for content to load
+                page.goto(url, wait_until='domcontentloaded', timeout=page_timeout)
                 time.sleep(wait_seconds)
                 html = page.content()
                 return html
@@ -94,5 +93,5 @@ def get_page(url, retries=2, wait_seconds=2):
         except Exception as e:
             logger.warning(f"Attempt {attempt + 1} failed for {url}: {e}")
             if attempt < retries - 1:
-                time.sleep(1)
+                time.sleep(2)
     return None

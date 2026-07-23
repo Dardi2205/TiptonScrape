@@ -35,7 +35,9 @@ class NeptunScraper:
         # Scrape all category pages for products with discounts
         for cat_slug, cat_url in self.CATEGORY_URLS.items():
             url = f"{self.BASE_URL}{cat_url}"
+            logger.info(f"Scraping Neptun category: {cat_slug} -> {url}")
             products = self._scrape_url(url)
+            logger.info(f"Neptun {cat_slug}: {len(products)} products")
             all_products.extend(products)
 
         seen = set()
@@ -45,11 +47,14 @@ class NeptunScraper:
                 seen.add(p['slug'])
                 if p.get('old_price') and p['old_price'] > p['current_price']:
                     unique.append(p)
+        logger.info(f"Neptun total unique discounted: {len(unique)}")
         return unique
 
     def _scrape_url(self, url):
-        html = get_page(url, wait_seconds=5)
+        logger.info(f"Fetching Neptun page: {url}")
+        html = get_page(url, retries=3, wait_seconds=10, page_timeout=45000)
         if not html:
+            logger.warning(f"No HTML returned for {url}")
             return []
 
         soup = BeautifulSoup(html, 'lxml')
@@ -57,6 +62,7 @@ class NeptunScraper:
 
         # Neptun uses div.productWrapperInner
         items = soup.select('.productWrapperInner')
+        logger.info(f"Found {len(items)} product elements on {url}")
 
         for item in items:
             try:
