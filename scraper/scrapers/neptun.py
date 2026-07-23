@@ -52,7 +52,7 @@ class NeptunScraper:
 
     def _scrape_url(self, url):
         logger.info(f"Fetching Neptun page: {url}")
-        html = get_page(url, retries=3, wait_seconds=10, page_timeout=45000)
+        html = get_page(url, retries=2, wait_seconds=5, page_timeout=30000)
         if not html:
             logger.warning(f"No HTML returned for {url}")
             return []

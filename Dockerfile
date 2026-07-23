@@ -31,4 +31,5 @@ RUN python -m playwright install chromium
 COPY . .
 RUN python manage.py collectstatic --noinput
 
-CMD sh -c "python manage.py migrate && python manage.py scrape && (python manage.py scrape --loop &) && gunicorn price_scraper.wsgi --bind 0.0.0.0:${PORT:-8000}"
+RUN chmod +x start.sh
+CMD ["./start.sh"]
