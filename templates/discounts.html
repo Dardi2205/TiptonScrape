@@ -42,6 +42,17 @@
             </a>
         </div>
 
+        <div class="search-bar">
+            <form method="get" action="{% url 'scraper:discounts' %}" class="search-form">
+                <input type="hidden" name="store" value="{{ current_store }}">
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Kerko Produkte... (p.sh. TV, Samsung, Laptop)" class="search-input" autofocus>
+                <button type="submit" class="btn btn-primary">Kerko</button>
+                {% if search_query %}
+                <a href="?store={{ current_store }}" class="btn btn-outline">Fshij</a>
+                {% endif %}
+            </form>
+        </div>
+
         <div class="results-info">
             <span>{{ total_count }} produkte ne zbritje</span>
             {% if current_store_name %}

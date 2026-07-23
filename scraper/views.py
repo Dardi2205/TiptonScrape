@@ -18,6 +18,19 @@ STORES_INFO = [
     {'slug': 'aztech', 'name': 'Aztech', 'url': 'https://aztechonline.com'},
 ]
 
+SEARCH_ALIASES = {
+    'televizor': ['tv', 'led', 'qled', 'oled'],
+    'tv': ['televizor', 'led', 'qled', 'oled'],
+    'laptop': ['kompjuter', 'notebook', 'pc'],
+    'kompjuter': ['laptop', 'notebook', 'pc'],
+    'kondicioner': ['klima', 'ac'],
+    'klima': ['kondicioner', 'ac'],
+    'frigorifer': ['frigorifere', 'freezer'],
+    'lavatrice': ['rrobalarese', 'washing'],
+    'smartphone': ['celular', 'telefon', 'phone'],
+    'celular': ['smartphone', 'telefon', 'phone'],
+}
+
 
 def _get_cache_path(store_slug):
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -191,6 +204,7 @@ def api_stats(request):
 def discounts(request):
     """Read products from cache only - no scraping in Django"""
     store_slug = request.GET.get('store', 'all')
+    search_query = request.GET.get('q', '').strip()
 
     products = []
     current_store_name = ''
@@ -212,6 +226,13 @@ def discounts(request):
     else:
         current_store_name = 'Zgjedhni dyqanin'
 
+    if search_query:
+        query_lower = search_query.lower()
+        keywords = [query_lower]
+        if query_lower in SEARCH_ALIASES:
+            keywords.extend(SEARCH_ALIASES[query_lower])
+        products = [p for p in products if any(kw in p.get('name', '').lower() for kw in keywords)]
+
     products.sort(key=lambda x: x.get('discount_percent', 0), reverse=True)
 
     context = {
@@ -219,6 +240,7 @@ def discounts(request):
         'total_count': len(products),
         'current_store': store_slug,
         'current_store_name': current_store_name,
+        'search_query': search_query,
         'stores': STORES_INFO,
         'page_title': 'Produkte ne Zbritje',
     }

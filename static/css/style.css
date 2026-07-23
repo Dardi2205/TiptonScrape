@@ -186,6 +186,16 @@ body {
 .store-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 .store-filter-label { margin-left: 8px; color: var(--text-light); }
 
+/* Search Bar */
+.search-bar { max-width: 600px; margin: 0 auto 24px; }
+.search-form { display: flex; gap: 8px; }
+.search-input {
+    flex: 1; padding: 12px 16px; border: 2px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 1rem; background: var(--card); transition: border-color 0.2s;
+}
+.search-input:focus { outline: none; border-color: var(--primary); }
+.search-input::placeholder { color: var(--text-light); }
+
 /* Discount Card */
 .discount-card { border: 1px solid var(--border); }
 .discount-card .card-image { height: 180px; }
