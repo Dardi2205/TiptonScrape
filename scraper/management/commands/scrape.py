@@ -50,10 +50,15 @@ class Command(BaseCommand):
                             p['old_price'] = float(p['old_price'])
 
                     cache_path = os.path.join(CACHE_DIR, f'discounts_{slug}.json')
-                    with open(cache_path, 'w', encoding='utf-8') as f:
-                        json.dump({'cached_at': time.strftime('%Y-%m-%dT%H:%M:%S'), 'products': products}, f, ensure_ascii=False)
-
-                    self.stdout.write(self.style.SUCCESS(f'{len(products)} products'))
+                    if len(products) > 0:
+                        with open(cache_path, 'w', encoding='utf-8') as f:
+                            json.dump({'cached_at': time.strftime('%Y-%m-%dT%H:%M:%S'), 'products': products}, f, ensure_ascii=False)
+                        self.stdout.write(self.style.SUCCESS(f'{len(products)} products'))
+                    else:
+                        if os.path.exists(cache_path):
+                            self.stdout.write(self.style.WARNING(f'0 products - keeping old cache'))
+                        else:
+                            self.stdout.write(self.style.WARNING(f'0 products - no cache yet'))
                 except Exception as e:
                     self.stdout.write(self.style.ERROR(f'Error: {e}'))
             close_browser()

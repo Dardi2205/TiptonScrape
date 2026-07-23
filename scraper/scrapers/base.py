@@ -22,7 +22,14 @@ def get_browser():
         except Exception:
             pass
         _playwright = sync_playwright().start()
-        _browser = _playwright.chromium.launch(headless=True)
+        _browser = _playwright.chromium.launch(
+            headless=True,
+            args=[
+                '--no-sandbox',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-dev-shm-usage',
+            ]
+        )
     return _browser
 
 
@@ -83,6 +90,9 @@ def get_page(url, retries=3, wait_seconds=3, page_timeout=30000):
         try:
             browser = get_browser()
             page = browser.new_page()
+            page.set_extra_http_headers({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+            })
             try:
                 page.goto(url, wait_until='domcontentloaded', timeout=page_timeout)
                 time.sleep(wait_seconds)
